@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="py-6 h-[calc(100vh-12rem)] flex flex-col">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">AI Travel Chatbot</h1>
+            <p class="text-gray-500">Ask anything about your upcoming trip or travel destinations.</p>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-green-500"></span> Online
+        </div>
+    </div>
+
+    <!-- Chat Interface -->
+    <div class="flex-grow bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+        <!-- Messages Area -->
+        <div id="chat-messages" class="flex-grow p-6 overflow-y-auto space-y-4 bg-gray-50/50">
+            <!-- Initial Bot Message -->
+            <div class="flex items-start">
+                <div class="flex-shrink-0 mr-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white shadow-md">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-2xl">
+                    <p class="text-gray-800">Hi {{ current_user.fullname.split(' ')[0] }}! 👋 I'm your AI travel assistant. How can I help you plan your trip today?</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-white border-t border-gray-100">
+            <form id="chat-form" class="flex gap-4">
+                <div class="flex-grow relative">
+                    <input type="text" id="chat-input" class="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-primary focus:border-primary focus:bg-white transition-colors" placeholder="Ask a question... (e.g. Best places in Goa under $500)" required>
+                    <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                </div>
+                <button type="submit" class="bg-primary hover:bg-indigo-700 text-white px-6 rounded-xl font-medium shadow-md transition-all flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const messagesContainer = document.getElementById('chat-messages');
+
+    function appendMessage(sender, text) {
+        const isUser = sender === 'user';
+        const html = `
+            <div class="flex items-start ${isUser ? 'justify-end' : ''}">
+                ${!isUser ? `
+                <div class="flex-shrink-0 mr-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white shadow-md">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                </div>` : ''}
+                
+                <div class="${isUser ? 'bg-primary text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none border border-gray-100 shadow-sm'} p-4 rounded-2xl max-w-2xl">
+                    <p>${text}</p>
+                </div>
+                
+                ${isUser ? `
+                <div class="flex-shrink-0 ml-4">
+                    <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shadow-sm">
+                        <i class="fa-regular fa-user"></i>
+                    </div>
+                </div>` : ''}
+            </div>
+        `;
+        messagesContainer.insertAdjacentHTML('beforeend', html);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function appendTyping() {
+        const html = `
+            <div class="flex items-start" id="typing-indicator">
+                <div class="flex-shrink-0 mr-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white shadow-md">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 flex items-center gap-1">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                </div>
+            </div>
+        `;
+        messagesContainer.insertAdjacentHTML('beforeend', html);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function removeTyping() {
+        const el = document.getElementById('typing-indicator');
+        if(el) el.remove();
+    }
+
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = chatInput.value.trim();
+        if(!msg) return;
+
+        appendMessage('user', msg);
+        chatInput.value = '';
+        appendTyping();
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: msg })
+            });
+            const data = await response.json();
+            removeTyping();
+            appendMessage('bot', data.reply);
+        } catch (error) {
+            removeTyping();
+            appendMessage('bot', 'Sorry, I am having trouble connecting right now.');
+        }
+    });
+</script>
+{% endblock %}
